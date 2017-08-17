@@ -1,4 +1,4 @@
-(defproject es-access "0.1.0-SNAPSHOT"
+(defproject es-auas/es-access "0.1.0"
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
@@ -6,5 +6,4 @@
   :dependencies [[org.clojure/clojure "1.9.0-alpha17"]
                  [korma "0.4.3"]
                  [postgresql/postgresql "9.3-1102.jdbc41"]
-                 [org.clojure/data.json "0.2.6"]
-])
+                 [org.clojure/data.json "0.2.6"]])
