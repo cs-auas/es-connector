@@ -20,7 +20,7 @@
 (defmulti handle-event :type)
 (defmethod handle-event :default [_])
 
-(defn make-listener []
+(def listener
   (reify PGNotificationListener
     (^void notification [this ^int processId ^String channelName ^String payload]
      (-> payload
@@ -30,8 +30,7 @@
          handle-event))))
 
 (defn connect [host port db user password]
-  (let [listener (make-listener)
-        ds (doto (PGDataSource.)
+  (let [ds (doto (PGDataSource.)
              (.setHost host)
              (.setPort 5432)
              (.setDatabase db)
