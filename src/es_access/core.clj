@@ -2,16 +2,12 @@
   (:require [korma.core :as k]
             [korma.db :refer [postgres defdb]]
             [clojure.data.json :as json]
-            [clojure.walk :refer [keywordize-keys]]))
+            [clojure.walk :refer [keywordize-keys]])
+  (:import [com.impossibl.postgres.jdbc PGDataSource]
+           [com.impossibl.postgres.api.jdbc PGNotificationListener]))
 
-(defn connect [host port db user password]
-  (defdb pg (postgres
-             {:host host
-              :port port
-              :db db
-              :user user
-              :password password
-              :delimiters ""})))
+
+
 
 (defn entity->clj [{:keys [creator type data version aggregate_id sequence_number]}]
   {:sequence-number sequence_number
@@ -20,6 +16,41 @@
    :version version
    :aggegate-id (when aggregate_id (read-string aggregate_id))
    :data (when data (keywordize-keys (json/read-str data)))})
+
+(defmulti handle-event :type)
+(defmethod handle-event :default [_])
+
+(defn make-listener []
+  (reify PGNotificationListener
+    (^void notification [this ^int processId ^String channelName ^String payload]
+     (-> payload
+         json/read-str
+         keywordize-keys
+         entity->clj
+         handle-event))))
+
+(defn connect [host port db user password]
+  (let [listener (make-listener)
+        ds (doto (PGDataSource.)
+             (.setHost host)
+             (.setPort 5432)
+             (.setDatabase db)
+             (.setUser user)
+             (.setPassword password))
+        conn (.getConnection ds)]
+    (.addNotificationListener conn listener)
+    (doto (.createStatement conn)
+      (.execute "LISTEN new_event;")
+      (.close))
+    (def connection conn))  
+
+  (defdb pg (postgres
+             {:host host
+              :port port
+              :db db
+              :user user
+              :password password
+              :delimiters ""})))
 
 (k/defentity events
   (k/table :events.events)
@@ -46,5 +77,3 @@
                               :creator (str creator)
                               :data (json/write-str data)
                               :aggregate_id (pr-str aggregate-id)})))
-
-
