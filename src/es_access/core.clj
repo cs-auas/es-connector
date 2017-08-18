@@ -65,7 +65,7 @@
   (swap! database-state
          (fn [state]
            (if state state {:db (init-sql-connection)
-                            :listener (init-sql-connection)}))))
+                            :listener (init-trigger)}))))
 
 (k/defentity events
   (k/table :events.events)
