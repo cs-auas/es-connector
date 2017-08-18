@@ -1,5 +1,5 @@
 (ns es-access.core
-  (:require [korma.core :refer [defentity table entity-fields select insert where values]]
+  (:require [korma.core :as k]
             [korma.db :refer [postgres defdb]]
             [clojure.data.json :as json]
             [clojure.walk :refer [keywordize-keys]]))
@@ -13,32 +13,38 @@
               :password password
               :delimiters ""})))
 
-(defentity events
-  (table :events.events)
-  (entity-fields :id :creator :type :version :data))
-
-(defn entity->clj [{:keys [creator type data version]}]
-  {:creator (read-string creator)
+(defn entity->clj [{:keys [creator type data version aggregate_id sequence_number]}]
+  {:sequence-number sequence_number
+   :creator (read-string creator)
    :type (read-string type)
    :version version
-   :data (keywordize-keys (json/read-str data))})
+   :aggegate-id (when aggregate_id (read-string aggregate_id))
+   :data (when data (keywordize-keys (json/read-str data)))})
 
-(defn entities->clj [events]
-  (map entity->clj events))
-
-(defn entities->json [events]
-  (json/write-str events))
+(k/defentity events
+  (k/table :events.events)
+  (k/entity-fields :sequence_number :aggregate_id :creator :type :version :data)
+  (k/transform entity->clj))
 
 (defn all
   ([] (all 0))
-  ([id]
-   (select events (where {:id [> id]}))))
+  ([sequence-number]
+   (k/select events (k/where {:sequence_number [> sequence-number]}))))
 
 (defn by-type
   ([type] (by-type type 0))
-  ([type id]
-   (select events (where {:id [> id]
-                          :type (str type)}))))
+  ([type sequence-number]
+   (k/select events (k/where {:sequence_number [> sequence-number]
+                              :type (str type)}))))
 
-(defn add! [{:keys [creator type data] :as event}]
-  (insert events (values (assoc event :type (str type) :creator (str creator) :data (json/write-str data)))))
+(defn by-aggregate [aggregate-id]
+  (k/select events (k/where {:aggregate_id (pr-str aggregate-id)})))
+
+(defn add! [{:keys [creator type data aggregate-id version]}]
+  (k/insert events (k/values {:type (str type)
+                              :version version
+                              :creator (str creator)
+                              :data (json/write-str data)
+                              :aggregate_id (pr-str aggregate-id)})))
+
+
