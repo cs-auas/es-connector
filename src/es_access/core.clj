@@ -86,6 +86,8 @@
 (defn by-aggregate [aggregate-id]
   (k/select events (k/where {:aggregate_id (pr-str aggregate-id)})))
 
+(defn uuid [] (str (java.util.UUID/randomUUID)))
+
 (defn add! [{:keys [creator type data aggregate-id version]}]
   (k/insert events (k/values {:type (str type)
                               :version version
