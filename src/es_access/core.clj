@@ -47,7 +47,7 @@
     db))
 
 (defn init-trigger []
-  (println "initializing connection to eventstore")
+  (println "initializing eventstore trigger")
   (let [ds (doto (PGDataSource.)
              (.setHost host)
              (.setPort port)
