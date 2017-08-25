@@ -13,6 +13,8 @@
 (def user (System/getenv "EVENTSTORE_USER"))
 (def password (System/getenv "EVENTSTORE_PASSWORD"))
 
+(defn uuid [] (str (java.util.UUID/randomUUID)))
+
 (defn entity->clj [{:keys [creator type data version aggregate_id sequence_number]}]
   {:sequence-number sequence_number
    :creator (read-string creator)
@@ -37,6 +39,7 @@
     db))
 
 (defn init-trigger []
+  (println "initializing eventstore trigger")
   (let [conn (pgl/connect {:host host :port port :database db :user user :password password})
         _ (pgl/arm-listener (fn [payload] (-> payload entity->clj handle-event)) "new_event")]
     conn))
