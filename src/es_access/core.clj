@@ -13,15 +13,23 @@
 (def user (System/getenv "EVENTSTORE_USER"))
 (def password (System/getenv "EVENTSTORE_PASSWORD"))
 
+(defn json->edn
+  "Try to parse json. Return EDN if input is json, else return the string."
+  [maybe-json]
+  (try
+    (keywordize-keys (json/read-str maybe-json))
+    (catch Exception e
+      maybe-json)))
+
 (defn uuid [] (str (java.util.UUID/randomUUID)))
 
-(defn entity->clj [{:keys [creator type data version aggregate_id sequence_number]}]
+(defn entity->clj [{:keys [creator type data version aggregate_id sequence_number] :as entity}]
   {:sequence-number sequence_number
    :creator (read-string creator)
    :type (read-string type)
    :version version
    :aggegate-id (when aggregate_id (read-string aggregate_id))
-   :data (when data (keywordize-keys (json/read-str data)))})
+   :data (when data (json->edn data))})
 
 (defmulti handle-event :type)
 (defmethod handle-event :default [_])
@@ -41,10 +49,7 @@
 (defn init-trigger []
   (println "initializing eventstore trigger")
   (let [conn (pgl/connect {:host host :port port :database db :user user :password password})
-        _ (pgl/arm-listener (fn [payload]
-                              (println {:payload payload
-                                        :entity (-> payload entity->clj)})
-                              (-> payload entity->clj handle-event)) "new_event")]
+        _ (pgl/arm-listener (fn [payload] (-> payload entity->clj handle-event)) "new_event")]
     conn))
 
 (defn start-db []
