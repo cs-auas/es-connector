@@ -41,7 +41,10 @@
 (defn init-trigger []
   (println "initializing eventstore trigger")
   (let [conn (pgl/connect {:host host :port port :database db :user user :password password})
-        _ (pgl/arm-listener (fn [payload] (-> payload entity->clj handle-event)) "new_event")]
+        _ (pgl/arm-listener (fn [payload]
+                              (println {:payload payload
+                                        :entity (-> payload entity->clj)})
+                              (-> payload entity->clj handle-event)) "new_event")]
     conn))
 
 (defn start-db []

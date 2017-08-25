@@ -1,4 +1,4 @@
-(defproject cs-auas/es-access "0.2.6"
+(defproject cs-auas/es-access "0.2.7-SNAPSHOT"
   :description "Connector to our eventstore, probably you don't want this lib"
   :url "https://github.com/cs-auas/es-connector"
   :license {:name "Eclipse Public License"
