@@ -2,11 +2,16 @@
   (:require [korma.core :as k]
             [korma.db :refer [postgres create-db default-connection]]
             [clojure.data.json :as json]
-            [clojure.walk :refer [keywordize-keys]])
-  (:import [com.impossibl.postgres.jdbc PGDataSource]
-           [com.impossibl.postgres.api.jdbc PGNotificationListener]))
+            [clojure.walk :refer [keywordize-keys]]
+            [postgres-listener.core :as pgl]))
 
 (defonce database-state (atom nil))
+
+(def host "eventstore")
+(def port 5432)
+(def db (System/getenv "EVENTSTORE_DB"))
+(def user (System/getenv "EVENTSTORE_USER"))
+(def password (System/getenv "EVENTSTORE_PASSWORD"))
 
 (defn entity->clj [{:keys [creator type data version aggregate_id sequence_number]}]
   {:sequence-number sequence_number
@@ -18,21 +23,6 @@
 
 (defmulti handle-event :type)
 (defmethod handle-event :default [_])
-
-(def listener
-  (reify PGNotificationListener
-    (^void notification [this ^int processId ^String channelName ^String payload]
-     (-> payload
-         json/read-str
-         keywordize-keys
-         entity->clj
-         handle-event))))
-
-(def host "eventstore")
-(def port 5432)
-(def db (System/getenv "EVENTSTORE_DB"))
-(def user (System/getenv "EVENTSTORE_USER"))
-(def password (System/getenv "EVENTSTORE_PASSWORD"))
 
 (defn init-sql-connection []
   (println "initializing connection to eventstore")
@@ -47,18 +37,8 @@
     db))
 
 (defn init-trigger []
-  (println "initializing trigger")
-  (let [ds (doto (PGDataSource.)
-             (.setHost host)
-             (.setPort port)
-             (.setDatabase db)
-             (.setUser user)
-             (.setPassword password))
-        conn (.getConnection ds)]
-    (.addNotificationListener conn listener)
-    (doto (.createStatement conn)
-      (.execute "LISTEN new_event;")
-      (.close))
+  (let [conn (pgl/connect {:host host :port port :database db :user user :password password})
+        _ (pgl/arm-listener (fn [payload] (-> payload entity->clj handle-event)) "new_event")]
     conn))
 
 (defn start-db []
@@ -66,6 +46,10 @@
          (fn [state]
            (if state state {:db (init-sql-connection)
                             :listener (init-trigger)}))))
+
+
+;; -----------------------------------------------------------------------------
+;; Queries
 
 (k/defentity events
   (k/table :events.events)
